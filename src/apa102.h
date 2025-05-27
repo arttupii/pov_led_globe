@@ -24,43 +24,46 @@ public:
                       uint8_t r, uint8_t g, uint8_t b,
                       uint8_t br)
   {
-    frame = 0xE0000000 |            // “111” + GBR
-                    (br & 0x1F) << 24 |
-                    uint32_t(b) << 16 |
-                    uint32_t(g) << 8  |
-                    r;
-    _ledFrame[i] = __builtin_bswap32(frame);  // MSB ensin DMA:lle
+      if (!_spiBuffer) return;
+
+      // Laske offset ensimmäisen LED-pikselin alkuun:
+      size_t pixelOffset = 4 + i * 4; // 4 = start-frame
+
+      // APA102: 0b111xxxxx kirkkaus, sitten BGR
+      _spiBuffer[pixelOffset + 0] = 0b11100000 | (br & 0x1F); // kirkkaus
+      _spiBuffer[pixelOffset + 1] = b;
+      _spiBuffer[pixelOffset + 2] = g;
+      _spiBuffer[pixelOffset + 3] = r;
   }
 
   //inline void setPixels(struct PovPixel *pixels, uint16_t len);
   inline void show()
   {
-    if(apaenabled==false) {
-      delay(1);
-      return;
-    }
+      // Kirjoitetaan start-frame (4 nollaa)
+      for (int i = 0; i < 4; ++i) _spiBuffer[i] = 0;
 
-    /* start-frame */
-    t.length    = sizeof(startFrame) * 8;
-    t.tx_buffer = startFrame;
-    spi_device_transmit(_spi, &t);
+      // LED-data on jo paikallaan
 
-    /* LED-data */
-    t.length    = _num * 32;
-    t.tx_buffer = _ledFrame.data();
-    spi_device_transmit(_spi, &t);
+      // Kirjoitetaan end-frame (täytetään loppu 0xFF:llä)
+      size_t endStart = 4 + _num * 4;
+      for (size_t i = 0; i < endLen; ++i) {
+        _spiBuffer[endStart + i] = 0xFF;
+      }
 
-    /* end-frame */
-    t.length    = endLen * 8;
-    t.tx_buffer = endFrame.data();
-    spi_device_transmit(_spi, &t);
+      spi_transaction_t t = {};
+      t.length = _spiBufferLen * 8;  // bits
+      t.tx_buffer = _spiBuffer;
+      ESP_ERROR_CHECK(spi_device_transmit(_spi, &t));
   }
+
   static void disableApa102(){
     apaenabled = false;
   }
+
   static void enableApa102(){
     apaenabled = true;
   }
+
   inline void setPixels(struct PovPixel *pixels, uint16_t len){
     for(int i=0;i<len;i++){
       setPixel(i, pixels[i].r,pixels[i].g,pixels[i].b,pixels[i].brigth);
@@ -70,12 +73,9 @@ public:
 private:
   uint16_t _num;
   spi_device_handle_t _spi;
-  std::vector<uint32_t> _ledFrame;   // valmiiksi pakattu 32-bit/pixel
 
-  const uint8_t startFrame[4] = {0, 0, 0, 0};
+  uint8_t *_spiBuffer = NULL;
+
   size_t endLen;
-  std::vector<uint8_t> endFrame;
-
-  spi_transaction_t t = {};
-  uint32_t frame;
+  size_t _spiBufferLen;  
 };

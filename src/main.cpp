@@ -13,8 +13,8 @@
 #include "freertos/task.h"
 AsyncUDP audp;
 
-const char* ssid = "Maaaaaa";
-const char* password = "aaaaaaKoo";
+const char* ssid = "aaaaaa";
+const char* password = "aaaaaaa";
 
 void otaTask(void*);
 void tasks(void*);
@@ -35,7 +35,7 @@ void setup() {
                       WIFI_PROTOCOL_11G |
                       WIFI_PROTOCOL_11N);   // 802.11n 72 Mbit
 
-    while (WiFi.status() != WL_CONNECTED) {
+    if (WiFi.status() != WL_CONNECTED) {
       delay(500);
       Serial.print(".");
     }
@@ -194,9 +194,9 @@ void dbg_task(){
     dbg("pov_line_tm ", pov_line_tm);
     dbg("pov_rotation_tm ", pov_rotation_tm);
 
-     // dbg("max_x ", pov_rotation_tm/pov_line_tm);
-     // dbg("rotation_r/min", (1000000/pov_rotation_tm)*60);
-    //  dbg("rotation_r/s", (1000000/pov_rotation_tm));
+    if(pov_line_tm) dbg("max_x ", pov_rotation_tm/pov_line_tm);
+    if(pov_rotation_tm) dbg("rotation_r/min", (1000000/pov_rotation_tm)*60);
+    if(pov_rotation_tm) dbg("rotation_r/s", (1000000/pov_rotation_tm));
     
     dbg("Free heap ", ESP.getFreeHeap());
     dbg("highWater", uxTaskGetStackHighWaterMark(NULL)); 
